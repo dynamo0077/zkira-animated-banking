@@ -1,0 +1,489 @@
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+
+// Custom hook for scroll progress tracking
+const useScrollProgress = () => {
+  const [scrollProgress, setScrollProgress] = useState(0);
+  
+  useEffect(() => {
+    const updateScrollProgress = () => {
+      const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const currentScroll = window.scrollY;
+      const progress = scrollHeight > 0 ? currentScroll / scrollHeight : 0;
+      setScrollProgress(Math.min(Math.max(progress, 0), 1));
+    };
+    
+    updateScrollProgress(); // Initial calculation
+    window.addEventListener('scroll', updateScrollProgress, { passive: true });
+    window.addEventListener('resize', updateScrollProgress, { passive: true });
+    
+    return () => {
+      window.removeEventListener('scroll', updateScrollProgress);
+      window.removeEventListener('resize', updateScrollProgress);
+    };
+  }, []);
+  
+  return scrollProgress;
+};
+
+// Utility function to calculate vertical scene transitions
+const getSceneTransform = (scrollProgress, sceneStart, sceneEnd) => {
+  // Before scene starts: below viewport
+  if (scrollProgress < sceneStart) return 'translateY(100vh)';
+  
+  // After scene ends: above viewport
+  if (scrollProgress > sceneEnd) return 'translateY(-100vh)';
+  
+  // During scene: calculate transition
+  const sceneProgress = (scrollProgress - sceneStart) / (sceneEnd - sceneStart);
+  
+  if (sceneProgress < 0.1) {
+    // Entering animation (first 10% of scene duration)
+    const enterProgress = sceneProgress / 0.1;
+    const yPos = 100 * (1 - enterProgress);
+    return `translateY(${yPos}vh)`;
+  } else if (sceneProgress > 0.9) {
+    // Exiting animation (last 10% of scene duration)
+    const exitProgress = (sceneProgress - 0.9) / 0.1;
+    const yPos = -100 * exitProgress;
+    return `translateY(${yPos}vh)`;
+  } else {
+    // Stable at center (middle 80% of scene duration)
+    return 'translateY(0)';
+  }
+};
+
+// Scene 1: Letter-by-Letter Glow Component
+const Scene1LetterGlow = React.memo(({ scrollProgress }) => {
+  const text = "Experience Effortless Banking at Your Fingertips";
+  const letters = useMemo(() => text.split(''), []);
+  
+  const sceneTransform = useMemo(() => 
+    getSceneTransform(scrollProgress, 0, 0.25), [scrollProgress]
+  );
+  
+  const letterRevealProgress = useMemo(() => 
+    Math.min(Math.max((scrollProgress - 0) / 0.2, 0), 1), [scrollProgress]
+  );
+  
+  return (
+    <div 
+      className="scene scene-1"
+      style={{ transform: sceneTransform }}
+    >
+      <h1 className="main-tagline">
+        {letters.map((letter, index) => {
+          const letterProgress = Math.min(Math.max(
+            (letterRevealProgress * letters.length - index), 0), 1);
+          
+          return (
+            <span
+              key={index}
+              className="letter"
+              style={{
+                opacity: letterProgress,
+                textShadow: `0 0 ${20 * letterProgress}px rgba(0, 212, 212, ${letterProgress})`,
+                filter: `blur(${Math.max(0, 2 - (letterProgress * 2))}px)`
+              }}
+            >
+              {letter}
+            </span>
+          );
+        })}
+      </h1>
+    </div>
+  );
+});
+
+// Scene 2: Brand Message Component
+const Scene2BrandMessage = React.memo(({ scrollProgress }) => {
+  const sceneTransform = useMemo(() => 
+    getSceneTransform(scrollProgress, 0.25, 0.44), [scrollProgress]
+  );
+  
+  const contentOpacity = useMemo(() => {
+    if (scrollProgress < 0.25 || scrollProgress > 0.44) return 0;
+    const phaseProgress = (scrollProgress - 0.25) / (0.44 - 0.25);
+    if (phaseProgress < 0.2) return phaseProgress / 0.2;
+    if (phaseProgress > 0.8) return (1 - phaseProgress) / 0.2;
+    return 1;
+  }, [scrollProgress]);
+  
+  return (
+    <div 
+      className="scene scene-2"
+      style={{ 
+        transform: sceneTransform,
+        opacity: contentOpacity
+      }}
+    >
+      <div className="brand-content">
+        <h1 className="brand-headline">
+          Step into the future with <span className="zrika-highlight">ZRIKA</span>
+        </h1>
+        <p className="brand-subtitle">
+          We bridge the gap between your financial goals and innovative tools, delivering smart solutions for a seamless banking experience.
+        </p>
+      </div>
+    </div>
+  );
+});
+
+// Scene 3: 3D Objects Component
+const Scene33DObjects = React.memo(({ scrollProgress }) => {
+  const sceneTransform = useMemo(() => 
+    getSceneTransform(scrollProgress, 0.45, 0.85), [scrollProgress]
+  );
+  
+  const objectAnimations = useMemo(() => {
+    if (scrollProgress < 0.45 || scrollProgress > 0.85) {
+      return { cardX: 0, chargerX: 0, scale: 0.5 };
+    }
+    
+    const phaseProgress = (scrollProgress - 0.45) / (0.85 - 0.45);
+    
+    // Card and charger separation animation
+    const cardX = phaseProgress > 0.5 ? -75 * ((phaseProgress - 0.5) / 0.5) : 0;
+    const chargerX = phaseProgress > 0.5 ? 75 * ((phaseProgress - 0.5) / 0.5) : 0;
+    const scale = 0.5 + (phaseProgress * 0.5);
+    
+    return { cardX, chargerX, scale };
+  }, [scrollProgress]);
+  
+  return (
+    <div 
+      className="scene scene-3"
+      style={{ transform: sceneTransform }}
+    >
+      <div className="objects-container">
+        <div 
+          className="credit-card-3d"
+          style={{
+            transform: `translateX(${objectAnimations.cardX}px) scale(${objectAnimations.scale}) rotateX(15deg) rotateY(-10deg)`
+          }}
+        >
+          <div className="card-body">
+            <div className="card-text">ZRICREST</div>
+            <div className="card-chip"></div>
+            <div className="card-number">0000 8547 1234 0000</div>
+          </div>
+        </div>
+        
+        <div 
+          className="charging-pad-3d"
+          style={{
+            transform: `translateX(${objectAnimations.chargerX}px) scale(${objectAnimations.scale}) rotateX(15deg) rotateY(10deg)`
+          }}
+        >
+          <div className="pad-body">
+            <div className="pad-symbol"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+// Scene 4: Feature Callouts Component
+const Scene4FeatureCallouts = React.memo(({ scrollProgress }) => {
+  const sceneTransform = useMemo(() => 
+    getSceneTransform(scrollProgress, 0.85, 1.0), [scrollProgress]
+  );
+  
+  const calloutsData = useMemo(() => [
+    { text: "just toggle UPI Switch", position: "callout-left-top", delay: 0 },
+    { text: "access with Fingerprint", position: "callout-left-bottom", delay: 0.15 },
+    { text: "NO MORE CABLES", position: "callout-right-top", delay: 0.3 },
+    { text: "JUST SNAP, CHARGE & GO.", position: "callout-right-bottom", delay: 0.45 }
+  ], []);
+  
+  const calloutAnimations = useMemo(() => {
+    if (scrollProgress < 0.85) return calloutsData.map(() => ({ opacity: 0, transform: 'scale(0.8) translateY(20px)' }));
+    
+    const phaseProgress = (scrollProgress - 0.85) / (1.0 - 0.85);
+    
+    return calloutsData.map((callout, index) => {
+      const individualProgress = Math.min(Math.max((phaseProgress - callout.delay) / 0.25, 0), 1);
+      
+      return {
+        opacity: individualProgress,
+        transform: `scale(${0.8 + (individualProgress * 0.2)}) translateY(${20 - (individualProgress * 20)}px)`
+      };
+    });
+  }, [scrollProgress, calloutsData]);
+  
+  const objectAnimations = useMemo(() => {
+    const cardX = -75;
+    const chargerX = 75;
+    const scale = 0.9;
+    
+    return { cardX, chargerX, scale };
+  }, []);
+  
+  return (
+    <div 
+      className="scene scene-4"
+      style={{ transform: sceneTransform }}
+    >
+      {/* 3D Objects in final position */}
+      <div className="objects-container">
+        <div 
+          className="credit-card-3d"
+          style={{
+            transform: `translateX(${objectAnimations.cardX}px) scale(${objectAnimations.scale}) rotateX(15deg) rotateY(170deg)`
+          }}
+        >
+          <div className="card-body">
+            <div className="card-text">ZRICREST</div>
+            <div className="card-chip"></div>
+            <div className="card-number">0000 8547 1234 0000</div>
+          </div>
+        </div>
+        
+        <div 
+          className="charging-pad-3d"
+          style={{
+            transform: `translateX(${objectAnimations.chargerX}px) scale(${objectAnimations.scale}) rotateX(15deg) rotateY(10deg)`
+          }}
+        >
+          <div className="pad-body">
+            <div className="pad-symbol"></div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Feature Callouts */}
+      <div className="feature-callouts">
+        {calloutsData.map((callout, index) => (
+          <div 
+            key={index}
+            className={`callout ${callout.position}`}
+            style={calloutAnimations[index]}
+          >
+            <span className="feature-text">{callout.text}</span>
+            <svg className="connection-line" viewBox="0 0 100 50">
+              <path 
+                d={callout.position.includes('left') 
+                  ? (callout.position.includes('top') ? "M5 45 L60 5" : "M5 5 L60 45")
+                  : (callout.position.includes('top') ? "M95 45 L40 5" : "M95 5 L40 45")
+                } 
+                stroke="#00d4d4" 
+                strokeWidth="2" 
+                fill="none" 
+                strokeDasharray="5,5"
+                strokeDashoffset={calloutAnimations[index].opacity < 1 ? 100 : 0}
+                style={{ 
+                  strokeDashoffset: `${100 - (calloutAnimations[index].opacity * 100)}`,
+                  transition: 'stroke-dashoffset 0.6s ease-out'
+                }}
+              />
+            </svg>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+});
+
+// Scene 5: Blank End State Component
+const Scene5BlankEnd = React.memo(({ scrollProgress }) => {
+  const sceneTransform = useMemo(() => 
+    scrollProgress >= 1.0 ? 'translateY(0)' : 'translateY(100vh)', [scrollProgress]
+  );
+  
+  return (
+    <div 
+      className="scene scene-5"
+      style={{ transform: sceneTransform }}
+    >
+      {/* Just particles background - minimal end state */}
+    </div>
+  );
+});
+
+// Particles Background Component
+const ParticlesBackground = React.memo(() => {
+  const particles = useMemo(() => {
+    return Array.from({ length: 65 }, (_, i) => ({
+      id: i,
+      size: Math.random() * 4 + 2,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      duration: 6 + Math.random() * 4,
+      delay: Math.random() * 5
+    }));
+  }, []);
+  
+  return (
+    <div className="particles-background">
+      {particles.map(particle => (
+        <div
+          key={particle.id}
+          className="particle"
+          style={{
+            width: `${particle.size}px`,
+            height: `${particle.size}px`,
+            left: `${particle.x}%`,
+            top: `${particle.y}%`,
+            animationDuration: `${particle.duration}s`,
+            animationDelay: `${particle.delay}s`
+          }}
+        />
+      ))}
+    </div>
+  );
+});
+
+// Main ZRIKA App Component
+const ZRIKAApp = () => {
+  const scrollProgress = useScrollProgress();
+  const [activeScene, setActiveScene] = useState('none');
+  
+  // Determine active scene based on scroll progress
+  useEffect(() => {
+    if (scrollProgress < 0.25) setActiveScene('scene1');
+    else if (scrollProgress < 0.44) setActiveScene('scene2');
+    else if (scrollProgress < 0.85) setActiveScene('scene3');
+    else if (scrollProgress < 1.0) setActiveScene('scene4');
+    else setActiveScene('scene5');
+  }, [scrollProgress]);
+  
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const scrollAmount = window.innerHeight * 0.6;
+      
+      switch(e.key) {
+        case 'ArrowDown':
+        case 'PageDown':
+        case ' ':
+          e.preventDefault();
+          window.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+          break;
+        case 'ArrowUp':
+        case 'PageUp':
+          e.preventDefault();
+          window.scrollBy({ top: -scrollAmount, behavior: 'smooth' });
+          break;
+        case 'Home':
+          e.preventDefault();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          break;
+        case 'End':
+          e.preventDefault();
+          window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+          break;
+        case '1':
+          e.preventDefault();
+          scrollToProgress(0.1);
+          break;
+        case '2':
+          e.preventDefault();
+          scrollToProgress(0.3);
+          break;
+        case '3':
+          e.preventDefault();
+          scrollToProgress(0.6);
+          break;
+        case '4':
+          e.preventDefault();
+          scrollToProgress(0.9);
+          break;
+        case '5':
+          e.preventDefault();
+          scrollToProgress(1.0);
+          break;
+      }
+    };
+    
+    const scrollToProgress = (targetProgress) => {
+      const containerHeight = document.documentElement.scrollHeight;
+      const windowHeight = window.innerHeight;
+      const maxScroll = containerHeight - windowHeight;
+      const targetY = targetProgress * maxScroll;
+      
+      window.scrollTo({ top: targetY, behavior: 'smooth' });
+    };
+    
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
+  
+  return (
+    <div className="scroll-container">
+      <div className="visual-container">
+        {/* Persistent particle background */}
+        <ParticlesBackground />
+        
+        {/* All scenes with vertical transitions */}
+        <Scene1LetterGlow scrollProgress={scrollProgress} />
+        <Scene2BrandMessage scrollProgress={scrollProgress} />
+        <Scene33DObjects scrollProgress={scrollProgress} />
+        <Scene4FeatureCallouts scrollProgress={scrollProgress} />
+        <Scene5BlankEnd scrollProgress={scrollProgress} />
+        
+        {/* Debug info */}
+        <div className="debug-overlay">
+          <div>Progress: {(scrollProgress * 100).toFixed(1)}%</div>
+          <div>Active: {activeScene}</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Performance monitoring hook
+const usePerformanceMonitor = () => {
+  useEffect(() => {
+    let frameCount = 0;
+    let lastTime = performance.now();
+    let fps = 60;
+    
+    const checkFrame = () => {
+      frameCount++;
+      const now = performance.now();
+      
+      if (now - lastTime >= 1000) {
+        fps = Math.round((frameCount * 1000) / (now - lastTime));
+        frameCount = 0;
+        lastTime = now;
+        
+        // Enable performance optimizations if FPS is low
+        if (fps < 30) {
+          console.log('Low performance detected, optimizing...');
+          // Reduce particle count
+          const particles = document.querySelectorAll('.particle');
+          particles.forEach((particle, index) => {
+            if (index % 2 === 0) {
+              particle.style.display = 'none';
+            }
+          });
+        }
+      }
+      
+      requestAnimationFrame(checkFrame);
+    };
+    
+    requestAnimationFrame(checkFrame);
+  }, []);
+};
+
+// Root App with performance monitoring
+const App = () => {
+  usePerformanceMonitor();
+  return <ZRIKAApp />;
+};
+
+// Export the App component
+export default App;
+
+// Global error handling
+window.addEventListener('error', (e) => {
+  console.error('ZRIKA Application error:', e.error);
+});
+
+// Console instructions
+console.log('ZRIKA Controls:');
+console.log('- Scroll wheel or arrow keys to navigate');
+console.log('- Press 1, 2, 3, 4, 5 to jump to specific scenes');
+console.log('- Home/End to go to start/end');
+console.log('- Application uses React function-based components with vertical scene transitions');
